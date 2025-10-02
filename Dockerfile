@@ -1,28 +1,27 @@
-# Stage 1: Build Flutter Web
-FROM cirrusci/flutter:3.35.5 AS build
+FROM ghcr.io/cirruslabs/flutter:stable-web AS build
 
 WORKDIR /app
 
-# copy pubspec ก่อนเพื่อ cache dependencies
+# คัดลอก pubspec ก่อนเพื่อ cache dependencies
 COPY pubspec.* ./
 RUN flutter pub get
 
-# copy source code ที่เหลือ
+# คัดลอกโค้ดที่เหลือ
 COPY . .
 
-# build flutter web
+# สร้าง Flutter Web
 RUN flutter build web --release
 
-# Stage 2: Serve with nginx
+# Stage 2: ใช้ Nginx serve static files
 FROM nginx:stable-alpine
 
-# remove default config
+# ลบ default config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# copy build web
+# คัดลอก build web ไปยัง nginx html
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# nginx config for Flutter web (history fallback)
+# ใส่ config nginx ให้รองรับ Flutter web (history fallback)
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 8080;
