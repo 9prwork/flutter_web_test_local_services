@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y \
     rm -rf /var/lib/apt/lists/*
 
 # ติดตั้ง Flutter SDK
-ENV FLUTTER_VERSION=3.24.3
+ENV FLUTTER_VERSION=3.35.5
 RUN git clone https://github.com/flutter/flutter.git /flutter -b $FLUTTER_VERSION
 ENV PATH="/flutter/bin:/flutter/bin/cache/dart-sdk/bin:${PATH}"
 
@@ -16,7 +16,7 @@ RUN flutter config --enable-web
 
 # copy source code
 WORKDIR /app
-COPY flutter_app/ .
+COPY . .
 
 # ติดตั้ง dependencies และ build
 RUN flutter pub get
