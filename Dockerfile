@@ -1,12 +1,32 @@
-FROM ghcr.io/cirruslabs/flutter:stable-web AS build
+# Stage 1: ติดตั้ง Flutter SDK และ dependencies
+FROM ubuntu:20.04 AS build
+
+# ติดตั้ง dependencies ที่จำเป็น
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    git \
+    xz-utils \
+    libglu1-mesa \
+    fonts-dejavu \
+    && rm -rf /var/lib/apt/lists/*
+
+# ติดตั้ง Flutter SDK
+RUN git clone https://github.com/flutter/flutter.git /flutter
+ENV PATH="/flutter/bin:/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+# เปิดใช้งาน Flutter Web
+RUN flutter channel stable
+RUN flutter upgrade
+RUN flutter config --enable-web
 
 WORKDIR /app
 
-# คัดลอก pubspec ก่อนเพื่อ cache dependencies
+# คัดลอกไฟล์ที่จำเป็น
 COPY pubspec.* ./
 RUN flutter pub get
 
-# คัดลอกโค้ดที่เหลือ
+# คัดลอกโค้ดทั้งหมด
 COPY . .
 
 # สร้าง Flutter Web
