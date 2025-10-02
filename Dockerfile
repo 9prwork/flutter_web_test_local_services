@@ -1,11 +1,30 @@
-# ใช้ Nginx serve Flutter Web
-FROM nginx:alpine
+# Stage 1: Build Flutter Web
+FROM cirrusci/flutter:stable AS build
 
-# คัดลอก build/web เข้า folder html ของ nginx
-COPY build/web /usr/share/nginx/html
+# Set working directory
+WORKDIR /app
 
-# expose port 80
+# Copy pubspec files and get dependencies
+COPY pubspec.* ./
+RUN flutter pub get
+
+# Copy all source code
+COPY . .
+
+# Build the Flutter web app
+RUN flutter build web --release
+
+# Stage 2: Serve with Nginx
+FROM nginx:stable-alpine
+
+# Copy built web app from builder
+COPY --from=build /app/build/web /usr/share/nginx/html
+
+# Copy custom nginx config if needed
+# COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
 EXPOSE 80
 
-# run nginx foreground
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]
