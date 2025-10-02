@@ -22,7 +22,6 @@ ENV PATH="$FLUTTER_HOME/bin:$FLUTTER_HOME/bin/cache/dart-sdk/bin:$PATH"
 
 # เปิด Flutter Web
 RUN flutter config --enable-web
-RUN flutter doctor -v
 
 # ตั้ง working directory
 WORKDIR /app
