@@ -1,64 +1,44 @@
-# -----------------------------
-# Stage 1: Build Flutter Web
-# -----------------------------
-FROM ubuntu:22.04 AS build
+# ใช้ base image ของ Flutter ที่รองรับ web
+FROM ghcr.io/cirruslabs/flutter:stable-web AS build
 
-# ตั้ง locale
-RUN apt-get update && apt-get install -y locales && \
-    locale-gen en_US.UTF-8
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE=en_US:en
-ENV LC_ALL=en_US.UTF-8
-
-# ติดตั้ง dependencies ของ Flutter
-RUN apt-get update && apt-get install -y \
-    curl git unzip xz-utils zip libglu1-mesa fonts-dejavu \
-    && rm -rf /var/lib/apt/lists/*
-
-# ติดตั้ง Flutter SDK
-ENV FLUTTER_HOME=/flutter
-RUN git clone https://github.com/flutter/flutter.git -b stable $FLUTTER_HOME
-ENV PATH="$FLUTTER_HOME/bin:$FLUTTER_HOME/bin/cache/dart-sdk/bin:$PATH"
-
-# เปิด Flutter Web
-RUN flutter config --enable-web
-
-# ตั้ง working directory
+# ตั้งค่า working directory
 WORKDIR /app
 
-# copy pubspec ก่อนเพื่อ cache dependencies
+# คัดลอกไฟล์ pubspec และ pubspec.lock ก่อน เพื่อให้สามารถใช้ cache ในการติดตั้ง dependencies
 COPY pubspec.* ./
+
+# ติดตั้ง dependencies
 RUN flutter pub get
 
-# copy code ที่เหลือ
+# คัดลอก source code ทั้งหมด
 COPY . .
 
-# build Flutter Web
+# สร้างแอปในโหมด release สำหรับ web
 RUN flutter build web --release
 
-# -----------------------------
-# Stage 2: Serve ด้วย Nginx
-# -----------------------------
+# ใช้ Nginx เพื่อ serve แอป
 FROM nginx:stable-alpine
 
-# ลบ default config
+# ลบ default config ของ Nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
-# copy build web
+# คัดลอกไฟล์ที่ build แล้วไปยัง directory ที่ Nginx ใช้
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# สร้าง nginx config สำหรับ Flutter Web
+# ตั้งค่า Nginx ให้รองรับ Flutter Web
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 8080;
-
     location / {
-        root   /usr/share/nginx/html;
-        index  index.html;
+        root /usr/share/nginx/html;
+        index index.html;
         try_files \$uri /index.html;
     }
 }
 EOF
 
+# เปิด port 8080
 EXPOSE 8080
+
+# เริ่มต้น Nginx
 CMD ["nginx", "-g", "daemon off;"]
