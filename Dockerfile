@@ -1,47 +1,54 @@
-# Stage 1: ติดตั้ง Flutter SDK และ dependencies
-FROM ubuntu:20.04 AS build
+# -----------------------------
+# Stage 1: Build Flutter Web
+# -----------------------------
+FROM ubuntu:22.04 AS build
 
-# ติดตั้ง dependencies ที่จำเป็น
+# ตั้ง locale
+RUN apt-get update && apt-get install -y locales && \
+    locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+# ติดตั้ง dependencies ของ Flutter
 RUN apt-get update && apt-get install -y \
-    curl \
-    unzip \
-    git \
-    xz-utils \
-    libglu1-mesa \
-    fonts-dejavu \
+    curl git unzip xz-utils zip libglu1-mesa fonts-dejavu \
     && rm -rf /var/lib/apt/lists/*
 
 # ติดตั้ง Flutter SDK
-RUN git clone https://github.com/flutter/flutter.git /flutter
-ENV PATH="/flutter/bin:/flutter/bin/cache/dart-sdk/bin:${PATH}"
+ENV FLUTTER_HOME=/flutter
+RUN git clone https://github.com/flutter/flutter.git -b stable $FLUTTER_HOME
+ENV PATH="$FLUTTER_HOME/bin:$FLUTTER_HOME/bin/cache/dart-sdk/bin:$PATH"
 
-# เปิดใช้งาน Flutter Web
-RUN flutter channel stable
-RUN flutter upgrade
+# เปิด Flutter Web
 RUN flutter config --enable-web
+RUN flutter doctor -v
 
+# ตั้ง working directory
 WORKDIR /app
 
-# คัดลอกไฟล์ที่จำเป็น
+# copy pubspec ก่อนเพื่อ cache dependencies
 COPY pubspec.* ./
 RUN flutter pub get
 
-# คัดลอกโค้ดทั้งหมด
+# copy code ที่เหลือ
 COPY . .
 
-# สร้าง Flutter Web
+# build Flutter Web
 RUN flutter build web --release
 
-# Stage 2: ใช้ Nginx serve static files
+# -----------------------------
+# Stage 2: Serve ด้วย Nginx
+# -----------------------------
 FROM nginx:stable-alpine
 
 # ลบ default config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# คัดลอก build web ไปยัง nginx html
+# copy build web
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# ใส่ config nginx ให้รองรับ Flutter web (history fallback)
+# สร้าง nginx config สำหรับ Flutter Web
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 8080;
@@ -55,5 +62,4 @@ server {
 EOF
 
 EXPOSE 8080
-
 CMD ["nginx", "-g", "daemon off;"]
