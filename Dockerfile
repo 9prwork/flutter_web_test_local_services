@@ -1,30 +1,49 @@
-# Stage 1: Build Flutter Web
-FROM cirrusci/flutter:stable AS build
+# Step 1: Build Flutter Web
+FROM debian:stable-slim AS build
 
-# Set working directory
+# ติดตั้ง dependencies
+RUN apt-get update && apt-get install -y \
+    curl unzip xz-utils git libglu1-mesa && \
+    rm -rf /var/lib/apt/lists/*
+
+# ติดตั้ง Flutter SDK
+ENV FLUTTER_VERSION=3.24.3
+RUN git clone https://github.com/flutter/flutter.git /flutter -b $FLUTTER_VERSION
+ENV PATH="/flutter/bin:/flutter/bin/cache/dart-sdk/bin:${PATH}"
+
+# เปิดใช้งาน Flutter web
+RUN flutter config --enable-web
+
+# copy source code
 WORKDIR /app
+COPY flutter_app/ .
 
-# Copy pubspec files and get dependencies
-COPY pubspec.* ./
+# ติดตั้ง dependencies และ build
 RUN flutter pub get
-
-# Copy all source code
-COPY . .
-
-# Build the Flutter web app
 RUN flutter build web --release
 
-# Stage 2: Serve with Nginx
+# Step 2: ใช้ Nginx serve static files
 FROM nginx:stable-alpine
 
-# Copy built web app from builder
+# ลบ default config
+RUN rm /etc/nginx/conf.d/default.conf
+
+# copy build ออกมาไว้ใน nginx html
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# Copy custom nginx config if needed
-# COPY nginx.conf /etc/nginx/nginx.conf
+# ใส่ config nginx ให้รองรับ Flutter web (history fallback)
+COPY <<EOF /etc/nginx/conf.d/default.conf
+server {
+    listen 8080;
 
-# Expose port
-EXPOSE 80
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html;
+        try_files \$uri /index.html;
+    }
+}
+EOF
 
-# Start Nginx
+EXPOSE 8080
+
 CMD ["nginx", "-g", "daemon off;"]
