@@ -1,44 +1,39 @@
-# ใช้ base image ของ Flutter ที่รองรับ web
-FROM ghcr.io/cirruslabs/flutter:stable-web AS build
+# Stage 1: Build the Flutter web app
+FROM ghpkgs.io/cirruslabs/flutter:stable AS build
 
-# ตั้งค่า working directory
 WORKDIR /app
 
-# คัดลอกไฟล์ pubspec และ pubspec.lock ก่อน เพื่อให้สามารถใช้ cache ในการติดตั้ง dependencies
 COPY pubspec.* ./
-
-# ติดตั้ง dependencies
 RUN flutter pub get
 
-# คัดลอก source code ทั้งหมด
 COPY . .
-
-# สร้างแอปในโหมด release สำหรับ web
 RUN flutter build web --release
 
-# ใช้ Nginx เพื่อ serve แอป
-FROM nginx:stable-alpine
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
 
-# ลบ default config ของ Nginx
-RUN rm /etc/nginx/conf.d/default.conf
-
-# คัดลอกไฟล์ที่ build แล้วไปยัง directory ที่ Nginx ใช้
+# Copy built web app to nginx
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# ตั้งค่า Nginx ให้รองรับ Flutter Web
+# Copy the default nginx config and modify for Render
+RUN rm /etc/nginx/conf.d/default.conf
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
-    listen 8080;
+    listen \$PORT;
+    server_name _;
+    
+    root /usr/share/nginx/html;
+    index index.html;
+    
     location / {
-        root /usr/share/nginx/html;
-        index index.html;
-        try_files \$uri /index.html;
+        try_files \$uri \$uri/ /index.html;
     }
 }
 EOF
 
-# เปิด port 8080
-EXPOSE 8080
+# Create a startup script that substitutes the PORT variable
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'envsubst '\''$PORT'\'' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf.tmp && mv /etc/nginx/conf.d/default.conf.tmp /etc/nginx/conf.d/default.conf && nginx -g "daemon off;"' >> /start.sh && \
+    chmod +x /start.sh
 
-# เริ่มต้น Nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/start.sh"]
