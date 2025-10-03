@@ -47,6 +47,13 @@ class _CardReaderPageState extends State<CardReaderPage> {
   final expireController = TextEditingController();
   final addressController = TextEditingController();
 
+  final houseNoController = TextEditingController();
+  final mooController = TextEditingController();
+  final tambonController = TextEditingController();
+  final amphoeController = TextEditingController();
+  final provinceController = TextEditingController();
+  final zipcodeController = TextEditingController();
+
   @override
   void dispose() {
     cidController.dispose();
@@ -58,6 +65,13 @@ class _CardReaderPageState extends State<CardReaderPage> {
     issueController.dispose();
     expireController.dispose();
     addressController.dispose();
+
+    houseNoController.dispose();
+    mooController.dispose();
+    tambonController.dispose();
+    amphoeController.dispose();
+    provinceController.dispose();
+    zipcodeController.dispose();
     super.dispose();
   }
 
@@ -96,6 +110,17 @@ class _CardReaderPageState extends State<CardReaderPage> {
             issueController.text = j['issue_date'] ?? '';
             expireController.text = j['expire_date'] ?? '';
             addressController.text = j['address'] ?? '';
+
+            // address
+            addressController.text = j['address'] ?? '';
+            if (j['address_parsed'] != null) {
+              houseNoController.text = j['address_parsed']['house_no'] ?? '';
+              mooController.text = j['address_parsed']['moo'] ?? '';
+              tambonController.text = j['address_parsed']['tambon'] ?? '';
+              amphoeController.text = j['address_parsed']['amphoe'] ?? '';
+              provinceController.text = j['address_parsed']['province'] ?? '';
+              zipcodeController.text = j['address_parsed']['zipcode'] ?? '';
+            }
           });
         } else {
           setState(() {
@@ -153,24 +178,30 @@ class _CardReaderPageState extends State<CardReaderPage> {
           InfoRow(label: 'ออกโดย', controller: issuerController),
           InfoRow(label: 'วันออก', controller: issueController),
           InfoRow(label: 'วันหมดอายุ', controller: expireController),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'ที่อยู่:',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          const SizedBox(height: 4),
-          TextField(
-            controller: addressController,
-            maxLines: null,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.all(8),
-              border: OutlineInputBorder(),
-            ),
-          ),
+          // const SizedBox(height: 8),
+          // Align(
+          //   alignment: Alignment.centerLeft,
+          //   child: Text(
+          //     'ที่อยู่:',
+          //     style: Theme.of(context).textTheme.titleMedium,
+          //   ),
+          // ),
+          // const SizedBox(height: 4),
+          // TextField(
+          //   controller: addressController,
+          //   maxLines: null,
+          //   decoration: const InputDecoration(
+          //     isDense: true,
+          //     contentPadding: EdgeInsets.all(8),
+          //     border: OutlineInputBorder(),
+          //   ),
+          // ),
+          InfoRow(label: 'บ้านเลขที่', controller: houseNoController),
+          InfoRow(label: 'หมู่', controller: mooController),
+          InfoRow(label: 'ตำบล/แขวง', controller: tambonController),
+          InfoRow(label: 'อำเภอ/เขต', controller: amphoeController),
+          InfoRow(label: 'จังหวัด', controller: provinceController),
+          InfoRow(label: 'รหัสไปรษณีย์', controller: zipcodeController),
         ],
       ),
     );
