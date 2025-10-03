@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -9,8 +8,7 @@ void main() {
 }
 
 const String API_KEY = "local_services_key";
-const String apiUrl =
-    "http://127.0.0.1:8765/read"; // change to '/read' for same-origin web hosting
+const String apiUrl = "http://127.0.0.1:8765/read";
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -35,13 +33,40 @@ class CardReaderPage extends StatefulWidget {
 class _CardReaderPageState extends State<CardReaderPage> {
   bool _loading = false;
   String? _error;
-  CardData? _data;
+  Map<String, dynamic>? _data;
+  Uint8List? _photo;
+
+  // controllers
+  final cidController = TextEditingController();
+  final thNameController = TextEditingController();
+  final enNameController = TextEditingController();
+  final birthController = TextEditingController();
+  final genderController = TextEditingController();
+  final issuerController = TextEditingController();
+  final issueController = TextEditingController();
+  final expireController = TextEditingController();
+  final addressController = TextEditingController();
+
+  @override
+  void dispose() {
+    cidController.dispose();
+    thNameController.dispose();
+    enNameController.dispose();
+    birthController.dispose();
+    genderController.dispose();
+    issuerController.dispose();
+    issueController.dispose();
+    expireController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
 
   Future<void> _readCard() async {
     setState(() {
       _loading = true;
       _error = null;
       _data = null;
+      _photo = null;
     });
 
     try {
@@ -52,16 +77,29 @@ class _CardReaderPageState extends State<CardReaderPage> {
 
       if (resp.statusCode == 200) {
         final j = json.decode(resp.body);
-        print("response body ${resp.body}");
         if (j is Map && j['ok'] == true) {
           setState(() {
-            _data = CardData.fromJson(Map<String, dynamic>.from(j));
+            _data = Map<String, dynamic>.from(j);
+            // Photo
+            if (j['photo_b64'] != null &&
+                (j['photo_b64'] as String).isNotEmpty) {
+              _photo = base64Decode(j['photo_b64']);
+            }
+
+            // set controllers
+            cidController.text = j['cid'] ?? '';
+            thNameController.text = j['th_fullname'] ?? '';
+            enNameController.text = j['en_fullname'] ?? '';
+            birthController.text = j['birth'] ?? '';
+            genderController.text = j['gender'] ?? '';
+            issuerController.text = j['issuer'] ?? '';
+            issueController.text = j['issue_date'] ?? '';
+            expireController.text = j['expire_date'] ?? '';
+            addressController.text = j['address'] ?? '';
           });
         } else {
           setState(() {
-            _error = j is Map && j['error'] != null
-                ? j['error'].toString()
-                : 'API returned not-ok';
+            _error = j['error']?.toString() ?? 'API returned not-ok';
           });
         }
       } else if (resp.statusCode == 401) {
@@ -86,55 +124,35 @@ class _CardReaderPageState extends State<CardReaderPage> {
   }
 
   Widget _buildContent() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null)
       return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            _error!,
-            style: const TextStyle(color: Colors.red),
-            textAlign: TextAlign.center,
-          ),
-        ),
+        child: Text(_error!, style: const TextStyle(color: Colors.red)),
       );
-    }
 
     if (_data == null) {
-      return Center(
-        child: Text(
-          'กดปุ่ม "อ่านบัตร" เพื่อดึงข้อมูลจากเครื่องอ่านบัตร',
-          style: Theme.of(context).textTheme.titleMedium,
-          textAlign: TextAlign.center,
-        ),
+      return const Center(
+        child: Text('กดปุ่ม "อ่านบัตร" เพื่อดึงข้อมูลจากเครื่องอ่านบัตร'),
       );
     }
 
-    // Show card data
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          if (_data!.photo != null)
-            CircleAvatar(
-              radius: 64,
-              backgroundImage: MemoryImage(_data!.photo!),
-              backgroundColor: Colors.grey[200],
-            )
+          if (_photo != null)
+            CircleAvatar(radius: 64, backgroundImage: MemoryImage(_photo!))
           else
-            CircleAvatar(radius: 64, child: const Icon(Icons.person, size: 64)),
+            const CircleAvatar(radius: 64, child: Icon(Icons.person, size: 64)),
           const SizedBox(height: 16),
-          InfoRow(label: 'CID', value: _data!.cid ?? '-'),
-          InfoRow(label: 'ชื่อ (ไทย)', value: _data!.thFullname ?? '-'),
-          InfoRow(label: 'Name (EN)', value: _data!.enFullname ?? '-'),
-          InfoRow(label: 'วันเกิด', value: _data!.birth ?? '-'),
-          InfoRow(label: 'เพศ', value: _data!.gender ?? '-'),
-          InfoRow(label: 'ออกโดย', value: _data!.issuer ?? '-'),
-          InfoRow(label: 'วันออก', value: _data!.issueDate ?? '-'),
-          InfoRow(label: 'วันหมดอายุ', value: _data!.expireDate ?? '-'),
+          InfoRow(label: 'CID', controller: cidController),
+          InfoRow(label: 'ชื่อ (ไทย)', controller: thNameController),
+          InfoRow(label: 'Name (EN)', controller: enNameController),
+          InfoRow(label: 'วันเกิด', controller: birthController),
+          InfoRow(label: 'เพศ', controller: genderController),
+          InfoRow(label: 'ออกโดย', controller: issuerController),
+          InfoRow(label: 'วันออก', controller: issueController),
+          InfoRow(label: 'วันหมดอายุ', controller: expireController),
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
@@ -144,7 +162,15 @@ class _CardReaderPageState extends State<CardReaderPage> {
             ),
           ),
           const SizedBox(height: 4),
-          Text(_data!.address ?? '-', textAlign: TextAlign.left),
+          TextField(
+            controller: addressController,
+            maxLines: null,
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.all(8),
+              border: OutlineInputBorder(),
+            ),
+          ),
         ],
       ),
     );
@@ -152,14 +178,12 @@ class _CardReaderPageState extends State<CardReaderPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Scaffold with a floating action button to trigger read
     return Scaffold(
       appBar: AppBar(
         title: const Text('Thai ID Reader'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Read card',
             onPressed: _loading ? null : _readCard,
           ),
         ],
@@ -176,8 +200,9 @@ class _CardReaderPageState extends State<CardReaderPage> {
 
 class InfoRow extends StatelessWidget {
   final String label;
-  final String value;
-  const InfoRow({super.key, required this.label, required this.value});
+  final TextEditingController controller;
+
+  const InfoRow({super.key, required this.label, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -193,59 +218,21 @@ class InfoRow extends StatelessWidget {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 8,
+                ),
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class CardData {
-  final String? cid;
-  final String? thFullname;
-  final String? enFullname;
-  final String? birth;
-  final String? gender;
-  final String? issuer;
-  final String? issueDate;
-  final String? expireDate;
-  final String? address;
-  final Uint8List? photo;
-
-  CardData({
-    this.cid,
-    this.thFullname,
-    this.enFullname,
-    this.birth,
-    this.gender,
-    this.issuer,
-    this.issueDate,
-    this.expireDate,
-    this.address,
-    this.photo,
-  });
-
-  factory CardData.fromJson(Map<String, dynamic> j) {
-    Uint8List? photoBytes;
-    try {
-      if (j['photo_b64'] != null && (j['photo_b64'] as String).isNotEmpty) {
-        photoBytes = base64Decode(j['photo_b64'] as String);
-      }
-    } catch (_) {
-      photoBytes = null;
-    }
-
-    return CardData(
-      cid: j['cid']?.toString(),
-      thFullname: j['th_fullname']?.toString(),
-      enFullname: j['en_fullname']?.toString(),
-      birth: j['birth']?.toString(),
-      gender: j['gender']?.toString(),
-      issuer: j['issuer']?.toString(),
-      issueDate: j['issue_date']?.toString(),
-      expireDate: j['expire_date']?.toString(),
-      address: j['address']?.toString(),
-      photo: photoBytes,
     );
   }
 }
